@@ -1,26 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface IntentCardProps {
   intent: string;
-  setIntent: (intent: string) => void;
+  onSetIntent: (intent: string) => void;
 }
 
-export default function IntentCard({ intent, setIntent }: IntentCardProps) {
+export default function IntentCard({ intent, onSetIntent }: IntentCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [tempIntent, setTempIntent] = useState(intent);
 
+  useEffect(() => {
+    setTempIntent(intent);
+  }, [intent]);
+
   const handleSave = () => {
-    setIntent(tempIntent);
+    onSetIntent(tempIntent.trim());
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setTempIntent(intent);
     setIsEditing(false);
   };
 
   return (
-    <div className="mb-6 p-4 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg border border-orange-200">
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-xl">🎯</span>
-        <span className="font-semibold text-orange-800">今日意图</span>
+    <div className="mb-6 p-5 bg-gradient-to-r from-amber-50 via-orange-50 to-yellow-50 rounded-xl border border-amber-200 shadow-sm">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-2xl">🎯</span>
+        <span className="font-semibold text-amber-800">今日意图</span>
+        <span className="text-xs text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">
+          今天最重要的事
+        </span>
       </div>
 
       {isEditing ? (
@@ -29,23 +41,24 @@ export default function IntentCard({ intent, setIntent }: IntentCardProps) {
             type="text"
             value={tempIntent}
             onChange={(e) => setTempIntent(e.target.value)}
-            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400"
+            className="w-full px-4 py-2.5 border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white/80"
             placeholder="今天最重要的事是什么？"
             autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSave();
+              if (e.key === "Escape") handleCancel();
+            }}
           />
           <div className="flex gap-2">
             <button
               onClick={handleSave}
-              className="px-4 py-1 bg-orange-500 text-white rounded-lg text-sm hover:bg-orange-600 transition-colors"
+              className="px-5 py-1.5 bg-amber-500 text-white rounded-lg text-sm hover:bg-amber-600 transition-colors shadow-sm"
             >
               保存
             </button>
             <button
-              onClick={() => {
-                setTempIntent(intent);
-                setIsEditing(false);
-              }}
-              className="px-4 py-1 bg-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-300 transition-colors"
+              onClick={handleCancel}
+              className="px-5 py-1.5 bg-white text-gray-600 rounded-lg text-sm hover:bg-gray-100 transition-colors border"
             >
               取消
             </button>
@@ -53,19 +66,17 @@ export default function IntentCard({ intent, setIntent }: IntentCardProps) {
         </div>
       ) : (
         <div
-          onClick={() => {
-            setTempIntent(intent);
-            setIsEditing(true);
-          }}
-          className="cursor-pointer group"
+          onClick={() => setIsEditing(true)}
+          className="cursor-pointer group min-h-[40px] flex items-center"
         >
           {intent ? (
-            <p className="text-orange-900 group-hover:opacity-70 transition-opacity">
-              {intent}
+            <p className="text-amber-900 text-lg font-medium group-hover:opacity-70 transition-opacity">
+              「{intent}」
             </p>
           ) : (
-            <p className="text-orange-400 group-hover:text-orange-600 transition-colors">
-              点击设置今日意图...
+            <p className="text-amber-400 group-hover:text-amber-600 transition-colors flex items-center gap-2">
+              <span className="text-lg">✏️</span>
+              <span>点击设置今日意图...</span>
             </p>
           )}
         </div>
