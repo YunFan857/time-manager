@@ -14,12 +14,20 @@ import {
   deleteSchedule as deleteScheduleFromStorage,
   getTodayIntent,
   setTodayIntent,
+  checkAuth,
+  logout,
 } from "@/lib/storage";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 interface ToastState {
   message: string;
   type: "success" | "error" | "info";
+}
+
+interface User {
+  id: string;
+  email: string;
+  name: string | null;
+  avatar_url: string | null;
 }
 
 export default function Home() {
@@ -31,36 +39,23 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   // 检查认证状态
-  const checkAuth = useCallback(async () => {
-    if (!isSupabaseConfigured()) {
-      setIsAuthenticated(false);
-      return;
-    }
-    const { data: { user } } = await supabase!.auth.getUser();
-    setIsAuthenticated(!!user);
-    setUserEmail(user?.email || null);
+  const checkAuthStatus = useCallback(async () => {
+    const result = await checkAuth();
+    setIsAuthenticated(result.authenticated);
+    setUser(result.user || null);
   }, []);
 
   // 初始化加载数据
   useEffect(() => {
     async function init() {
-      await checkAuth();
+      await checkAuthStatus();
       await loadData();
     }
     init();
-
-    // 监听认证状态变化
-    if (isSupabaseConfigured()) {
-      const { data: { subscription } } = supabase!.auth.onAuthStateChange(() => {
-        checkAuth();
-        loadData();
-      });
-      return () => subscription.unsubscribe();
-    }
-  }, [checkAuth]);
+  }, [checkAuthStatus]);
 
   // 加载数据
   const loadData = async () => {
@@ -139,9 +134,9 @@ export default function Home() {
 
   // 退出登录
   const handleLogout = async () => {
-    await supabase?.auth.signOut();
+    await logout();
     setIsAuthenticated(false);
-    setUserEmail(null);
+    setUser(null);
     showToast("已退出登录", "info");
   };
 
@@ -174,28 +169,35 @@ export default function Home() {
         </div>
         
         {/* 用户状态 */}
-        {isSupabaseConfigured() && (
-          <div className="text-right">
-            {isAuthenticated ? (
-              <div className="text-sm">
-                <div className="text-gray-600">{userEmail}</div>
-                <button
-                  onClick={handleLogout}
-                  className="text-red-500 hover:underline text-xs"
-                >
-                  退出登录
-                </button>
+        <div className="text-right">
+          {isAuthenticated && user ? (
+            <div className="text-sm">
+              <div className="flex items-center gap-2 justify-end">
+                {user.avatar_url && (
+                  <img 
+                    src={user.avatar_url} 
+                    alt="avatar" 
+                    className="w-6 h-6 rounded-full"
+                  />
+                )}
+                <span className="text-gray-600">{user.name || user.email}</span>
               </div>
-            ) : (
               <button
-                onClick={() => setShowAuth(true)}
-                className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600"
+                onClick={handleLogout}
+                className="text-red-500 hover:underline text-xs mt-1"
               >
-                登录同步
+                退出登录
               </button>
-            )}
-          </div>
-        )}
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowAuth(true)}
+              className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600"
+            >
+              登录同步
+            </button>
+          )}
+        </div>
       </header>
 
       {/* 今日意图 */}
@@ -238,7 +240,7 @@ export default function Home() {
       {showAuth && (
         <Auth onAuthChange={() => {
           setShowAuth(false);
-          checkAuth();
+          checkAuthStatus();
           loadData();
         }} />
       )}

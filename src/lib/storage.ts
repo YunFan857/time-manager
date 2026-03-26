@@ -1,5 +1,4 @@
 import { Schedule, DailyIntent } from "@/types";
-import { supabase, isSupabaseConfigured } from "./supabase";
 
 const SCHEDULES_KEY = "time-manager-schedules";
 const INTENTS_KEY = "time-manager-intents";
@@ -9,23 +8,38 @@ export function getTodayString(): string {
   return new Date().toISOString().split("T")[0];
 }
 
-// 获取当前用户 ID
-async function getUserId(): Promise<string | null> {
-  if (!supabase) return null;
-  const { data: { user } } = await supabase.auth.getUser();
-  return user?.id || null;
+// ============ 认证相关 ============
+
+// 检查是否已登录
+export async function checkAuth(): Promise<{ authenticated: boolean; user?: { id: string; email: string; name: string | null; avatar_url: string | null } }> {
+  try {
+    const res = await fetch('/api/auth/me');
+    const data = await res.json();
+    return { authenticated: !!data.user, user: data.user };
+  } catch {
+    return { authenticated: false };
+  }
+}
+
+// Google 登录
+export function googleLogin(): void {
+  window.location.href = '/api/auth/google';
+}
+
+// 登出
+export async function logout(): Promise<void> {
+  await fetch('/api/auth/logout', { method: 'POST' });
 }
 
 // ============ 日程相关 ============
 
-// 获取所有日程（localStorage）
+// localStorage 相关函数（用于未登录状态）
 function getSchedulesLocal(): Schedule[] {
   if (typeof window === "undefined") return [];
   const data = localStorage.getItem(SCHEDULES_KEY);
   return data ? JSON.parse(data) : [];
 }
 
-// 保存日程（localStorage）
 function saveSchedulesLocal(schedules: Schedule[]): void {
   localStorage.setItem(SCHEDULES_KEY, JSON.stringify(schedules));
 }
@@ -34,72 +48,45 @@ function saveSchedulesLocal(schedules: Schedule[]): void {
 export async function getTodaySchedules(): Promise<Schedule[]> {
   const today = getTodayString();
   
-  if (isSupabaseConfigured()) {
-    const userId = await getUserId();
-    if (userId) {
-      const { data, error } = await supabase!
-        .from("schedules")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("date", today)
-        .order("start_time");
-      
-      if (!error && data) {
-        return data.map(item => ({
-          id: item.id,
-          title: item.title,
-          description: item.description,
-          startTime: item.start_time,
-          endTime: item.end_time,
-          category: item.category,
-          date: item.date,
-        }));
-      }
+  try {
+    const res = await fetch(`/api/schedules?date=${today}`);
+    if (res.ok) {
+      const data = await res.json();
+      return data.schedules.map((item: { id: string; title: string; description: string | null; start_time: string; end_time: string; category: string; date: string }) => ({
+        id: item.id,
+        title: item.title,
+        description: item.description,
+        startTime: item.start_time,
+        endTime: item.end_time,
+        category: item.category,
+        date: item.date,
+      }));
     }
+  } catch (err) {
+    console.error('Failed to fetch schedules:', err);
   }
   
   // Fallback to localStorage
   return getSchedulesLocal().filter((s) => s.date === today);
 }
 
-// 同步版本（用于兼容）
-export function getTodaySchedulesSync(): Schedule[] {
-  return getSchedulesLocal().filter((s) => s.date === getTodayString());
-}
-
 // 添加日程
 export async function addSchedule(schedule: Omit<Schedule, "id" | "date">): Promise<Schedule> {
   const today = getTodayString();
   
-  if (isSupabaseConfigured()) {
-    const userId = await getUserId();
-    if (userId) {
-      const { data, error } = await supabase!
-        .from("schedules")
-        .insert({
-          user_id: userId,
-          title: schedule.title,
-          description: schedule.description,
-          start_time: schedule.startTime,
-          end_time: schedule.endTime,
-          category: schedule.category,
-          date: today,
-        })
-        .select()
-        .single();
-      
-      if (!error && data) {
-        return {
-          id: data.id,
-          title: data.title,
-          description: data.description,
-          startTime: data.start_time,
-          endTime: data.end_time,
-          category: data.category,
-          date: data.date,
-        };
-      }
+  try {
+    const res = await fetch('/api/schedules', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...schedule, date: today }),
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      return data.schedule;
     }
+  } catch (err) {
+    console.error('Failed to add schedule:', err);
   }
   
   // Fallback to localStorage
@@ -116,25 +103,16 @@ export async function addSchedule(schedule: Omit<Schedule, "id" | "date">): Prom
 
 // 更新日程
 export async function updateSchedule(id: string, updates: Partial<Schedule>): Promise<void> {
-  if (isSupabaseConfigured()) {
-    const userId = await getUserId();
-    if (userId) {
-      const updateData: Record<string, unknown> = {};
-      if (updates.title !== undefined) updateData.title = updates.title;
-      if (updates.description !== undefined) updateData.description = updates.description;
-      if (updates.startTime !== undefined) updateData.start_time = updates.startTime;
-      if (updates.endTime !== undefined) updateData.end_time = updates.endTime;
-      if (updates.category !== undefined) updateData.category = updates.category;
-      if (updates.date !== undefined) updateData.date = updates.date;
-      
-      const { error } = await supabase!
-        .from("schedules")
-        .update(updateData)
-        .eq("id", id)
-        .eq("user_id", userId);
-      
-      if (!error) return;
-    }
+  try {
+    const res = await fetch('/api/schedules', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...updates }),
+    });
+    
+    if (res.ok) return;
+  } catch (err) {
+    console.error('Failed to update schedule:', err);
   }
   
   // Fallback to localStorage
@@ -148,17 +126,11 @@ export async function updateSchedule(id: string, updates: Partial<Schedule>): Pr
 
 // 删除日程
 export async function deleteSchedule(id: string): Promise<void> {
-  if (isSupabaseConfigured()) {
-    const userId = await getUserId();
-    if (userId) {
-      const { error } = await supabase!
-        .from("schedules")
-        .delete()
-        .eq("id", id)
-        .eq("user_id", userId);
-      
-      if (!error) return;
-    }
+  try {
+    const res = await fetch(`/api/schedules?id=${id}`, { method: 'DELETE' });
+    if (res.ok) return;
+  } catch (err) {
+    console.error('Failed to delete schedule:', err);
   }
   
   // Fallback to localStorage
@@ -168,14 +140,12 @@ export async function deleteSchedule(id: string): Promise<void> {
 
 // ============ 今日意图相关 ============
 
-// 获取意图（localStorage）
 function getIntentsLocal(): DailyIntent[] {
   if (typeof window === "undefined") return [];
   const data = localStorage.getItem(INTENTS_KEY);
   return data ? JSON.parse(data) : [];
 }
 
-// 保存意图（localStorage）
 function saveIntentsLocal(intents: DailyIntent[]): void {
   localStorage.setItem(INTENTS_KEY, JSON.stringify(intents));
 }
@@ -184,60 +154,37 @@ function saveIntentsLocal(intents: DailyIntent[]): void {
 export async function getTodayIntent(): Promise<string> {
   const today = getTodayString();
   
-  if (isSupabaseConfigured()) {
-    const userId = await getUserId();
-    if (userId) {
-      const { data, error } = await supabase!
-        .from("daily_intents")
-        .select("content")
-        .eq("user_id", userId)
-        .eq("date", today)
-        .single();
-      
-      if (!error && data) {
-        return data.content;
-      }
+  try {
+    const res = await fetch('/api/intents');
+    if (res.ok) {
+      const data = await res.json();
+      return data.intent || "";
     }
+  } catch (err) {
+    console.error('Failed to get intent:', err);
   }
   
   // Fallback to localStorage
-  const intent = getIntentsLocal().find((i) => i.date === today);
-  return intent?.content || "";
-}
-
-// 同步版本（用于兼容）
-export function getTodayIntentSync(): string {
-  const today = getTodayString();
   const intent = getIntentsLocal().find((i) => i.date === today);
   return intent?.content || "";
 }
 
 // 设置今日意图
 export async function setTodayIntent(content: string): Promise<void> {
-  const today = getTodayString();
-  
-  if (isSupabaseConfigured()) {
-    const userId = await getUserId();
-    if (userId) {
-      // 使用 upsert 插入或更新
-      const { error } = await supabase!
-        .from("daily_intents")
-        .upsert(
-          {
-            user_id: userId,
-            date: today,
-            content,
-          },
-          {
-            onConflict: "user_id,date",
-          }
-        );
-      
-      if (!error) return;
-    }
+  try {
+    const res = await fetch('/api/intents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    });
+    
+    if (res.ok) return;
+  } catch (err) {
+    console.error('Failed to set intent:', err);
   }
   
   // Fallback to localStorage
+  const today = getTodayString();
   const intents = getIntentsLocal();
   const existingIndex = intents.findIndex((i) => i.date === today);
   
