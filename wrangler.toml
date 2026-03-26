@@ -1,7 +1,12 @@
 name = "time-manager"
 compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".vercel/output/static"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "time-manager-db"
 database_id = "60b804d2-1d18-4939-b427-7269c7f565ac"
+
+[vars]
+NEXT_PUBLIC_SITE_URL = "https://time-manager.yunfanai.xyz"

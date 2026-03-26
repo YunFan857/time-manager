@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getRequestContext } from '@cloudflare/next-on-pages';
 import { DailyIntent, Session, generateId } from '@/lib/db';
+
+export const runtime = 'edge';
 
 // 获取今日意图
 export async function GET(request: NextRequest) {
@@ -13,8 +16,8 @@ export async function GET(request: NextRequest) {
 
     const sessionId = sessionMatch[1];
     
-    // @ts-ignore
-    const db: D1Database = request.env?.DB || globalThis.DB;
+    const { env } = getRequestContext();
+    const db = env.DB;
     
     if (!db) {
       return NextResponse.json({ intent: null });
@@ -53,8 +56,8 @@ export async function POST(request: NextRequest) {
 
     const sessionId = sessionMatch[1];
     
-    // @ts-ignore
-    const db: D1Database = request.env?.DB || globalThis.DB;
+    const { env } = getRequestContext();
+    const db = env.DB;
     
     if (!db) {
       return NextResponse.json({ error: 'Database not available' }, { status: 500 });

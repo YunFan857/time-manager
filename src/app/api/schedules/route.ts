@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getRequestContext } from '@cloudflare/next-on-pages';
 import { Schedule, Session, generateId } from '@/lib/db';
+
+export const runtime = 'edge';
 
 // 获取今日日程
 export async function GET(request: NextRequest) {
@@ -13,8 +16,8 @@ export async function GET(request: NextRequest) {
 
     const sessionId = sessionMatch[1];
     
-    // @ts-ignore
-    const db: D1Database = request.env?.DB || globalThis.DB;
+    const { env } = getRequestContext();
+    const db = env.DB;
     
     if (!db) {
       return NextResponse.json({ error: 'Database not available' }, { status: 500 });
@@ -56,8 +59,8 @@ export async function POST(request: NextRequest) {
 
     const sessionId = sessionMatch[1];
     
-    // @ts-ignore
-    const db: D1Database = request.env?.DB || globalThis.DB;
+    const { env } = getRequestContext();
+    const db = env.DB;
     
     if (!db) {
       return NextResponse.json({ error: 'Database not available' }, { status: 500 });
@@ -82,7 +85,7 @@ export async function POST(request: NextRequest) {
     const scheduleId = generateId();
 
     await db.prepare(
-      'INSERT INTO schedules (id, user_id, title, description, start_time, end_time, category, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO schedules (id, user_id, title, description, start_time, end_time, category, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?'
     ).bind(scheduleId, session.user_id, title, description || null, startTime, endTime, category || 'work', date).run();
 
     return NextResponse.json({ 
@@ -107,8 +110,8 @@ export async function PUT(request: NextRequest) {
 
     const sessionId = sessionMatch[1];
     
-    // @ts-ignore
-    const db: D1Database = request.env?.DB || globalThis.DB;
+    const { env } = getRequestContext();
+    const db = env.DB;
     
     if (!db) {
       return NextResponse.json({ error: 'Database not available' }, { status: 500 });
@@ -152,8 +155,8 @@ export async function DELETE(request: NextRequest) {
 
     const sessionId = sessionMatch[1];
     
-    // @ts-ignore
-    const db: D1Database = request.env?.DB || globalThis.DB;
+    const { env } = getRequestContext();
+    const db = env.DB;
     
     if (!db) {
       return NextResponse.json({ error: 'Database not available' }, { status: 500 });

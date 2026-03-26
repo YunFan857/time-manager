@@ -1,10 +1,4 @@
-// Cloudflare D1 数据库类型
-export interface Env {
-  DB: D1Database;
-  GOOGLE_CLIENT_ID: string;
-  GOOGLE_CLIENT_SECRET: string;
-  JWT_SECRET: string;
-}
+// 数据库相关类型和工具函数
 
 // 用户表结构
 export interface User {

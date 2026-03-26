@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getRequestContext } from '@cloudflare/next-on-pages';
 import { User, Session } from '@/lib/db';
+
+export const runtime = 'edge';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,9 +16,8 @@ export async function GET(request: NextRequest) {
 
     const sessionId = sessionMatch[1];
 
-    // 获取 D1 绑定
-    // @ts-ignore - Cloudflare Pages 绑定
-    const db: D1Database = request.env?.DB || globalThis.DB;
+    const { env } = getRequestContext();
+    const db = env.DB;
     
     if (!db) {
       return NextResponse.json({ user: null });

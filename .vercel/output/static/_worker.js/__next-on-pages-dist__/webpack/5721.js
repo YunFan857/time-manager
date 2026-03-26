@@ -1,0 +1,1 @@
+var e={},p=(i,l,x)=>(e.__chunk_5721=(_,n,r)=>{"use strict";function a(){return crypto.randomUUID()}function o(t,u,s=604800){return`${t}=${u}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${s}`}function c(t){return`${t}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`}r.d(n,{$C:()=>a,TV:()=>o,o7:()=>c})},e);export{p as __getNamedExports};

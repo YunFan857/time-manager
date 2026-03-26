@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getRequestContext } from '@cloudflare/next-on-pages';
+
+export const runtime = 'edge';
 
 export async function GET(request: NextRequest) {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const { env } = getRequestContext();
+  const clientId = env.GOOGLE_CLIENT_ID;
   
   if (!clientId) {
     return NextResponse.json({ error: 'Google Client ID not configured' }, { status: 500 });
   }
 
-  const redirectUri = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://time-manager.yunfanai.xyz'}/api/auth/callback`;
+  const siteUrl = 'https://time-manager.yunfanai.xyz';
+  const redirectUri = `${siteUrl}/api/auth/callback`;
   
   const params = new URLSearchParams({
     client_id: clientId,
